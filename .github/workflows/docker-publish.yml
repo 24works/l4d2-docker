@@ -8,8 +8,8 @@ on:
 
 jobs:
   build-and-push:
-    # runs-on: ubuntu-latest
-    runs-on: org-aliyun-sin
+    runs-on: ubuntu-latest
+    # runs-on: org-aliyun-sin
 
     steps:
       - name: Checkout repository
