@@ -2,7 +2,7 @@ services:
   l4d2server:
     command: "-secure +exec server.cfg -port 27015 -tickrate 100"
     container_name: l4d2server
-    image: 24workers/l4d2server:latest
+    image: 24workers/l4d2-docker:latest
     ports:
       - 27015:27015
       - 27015:27015/udp
