@@ -1,0 +1,80 @@
+name: Debug Build Docker Image
+
+on:
+  # push:
+  #   branches:
+  #     - master
+  workflow_dispatch:
+
+jobs:
+  debug-build:
+    runs-on: ubuntu-latest
+
+    env:
+      DOCKER_BUILDKIT: 1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show runner info
+        run: |
+          echo "===== Runner OS ====="
+          uname -a
+          cat /etc/os-release || true
+
+          echo "===== Docker version ====="
+          docker version
+
+          echo "===== Docker info ====="
+          docker info
+
+          echo "===== Disk space ====="
+          df -h
+
+          echo "===== Memory ====="
+          free -h
+
+          echo "===== Files in workspace ====="
+          ls -la
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract repository name
+        id: extract_repo_name
+        run: echo "REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)" >> $GITHUB_ENV
+
+      - name: Build image (no cache, plain progress, Dockerfile.debug)
+        run: |
+          docker build \
+            --no-cache \
+            --progress=plain \
+            -t debug-l4d2:${{ github.sha }} \
+            -f Dockerfile.debug \
+            . 2>&1 | tee /tmp/docker-build.log
+
+      - name: Show tail of build log
+        if: always()
+        run: |
+          echo "===== Last 300 lines of build log ====="
+          tail -n 300 /tmp/docker-build.log || true
+
+      - name: Upload build log as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-log
+          path: /tmp/docker-build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Inspect image
+        if: success()
+        run: |
+          echo "===== docker images ====="
+          docker images
+          echo "===== image history ====="
+          docker history debug-l4d2:${{ github.sha }} --no-trunc || true
+          echo "===== inspect srcds_run ====="
+          docker run --rm --entrypoint /bin/bash debug-l4d2:${{ github.sha }} -c "ls -la /home/steam/l4d2server | head -n 50"

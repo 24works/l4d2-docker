@@ -1,0 +1,38 @@
+FROM debian:12-slim
+
+LABEL org.opencontainers.image.source=https://github.com/HoshinoRei/l4d2server-docker
+LABEL L4D2_VERSION=2243
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV LANGUAGE=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+RUN apt-get install -y wget ca-certificates lib32gcc-s1 lib32stdc++6
+RUN apt-get clean
+RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN adduser --home /home/steam --disabled-password --shell /bin/bash --gecos "user for running steam" --quiet steam
+
+USER steam
+WORKDIR /home/steam
+
+RUN wget -O steamcmd_linux.tar.gz https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
+RUN tar -xzvf steamcmd_linux.tar.gz
+RUN rm -f steamcmd_linux.tar.gz
+
+# 先单独跑一次 steamcmd，提前暴露 32 位库/证书/网络问题
+RUN ./steamcmd.sh +login anonymous +quit
+
+RUN ./steamcmd.sh +@sSteamCmdForcePlatformType windows +force_install_dir /home/steam/l4d2server +login anonymous +app_update 222860 validate +quit
+RUN ./steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /home/steam/l4d2server +login anonymous +app_update 222860 validate +quit
+
+RUN rm -rf /home/steam/l4d2server/left4dead2/host.txt
+RUN rm -rf /home/steam/l4d2server/left4dead2/motd.txt
+
+EXPOSE 27015 27015/udp
+
+VOLUME ["/home/steam/l4d2server/left4dead2/addons", "/home/steam/l4d2server/left4dead2/cfg/server.cfg", "/home/steam/l4d2server/left4dead2/motd.txt", "/home/steam/l4d2server/left4dead2/host.txt"]
+
+ENTRYPOINT ["/home/steam/l4d2server/srcds_run", "-game left4dead2"]
+CMD ["-secure", "+exec server.cfg", "+map c1m1_hotel", "-port 27015"]
