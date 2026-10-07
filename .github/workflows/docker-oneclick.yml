@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare image names and date tag
+      - name: Prepare image names, date tag and cachebust
         id: prep
         run: |
           # GHCR 要求镜像名全小写
@@ -34,6 +34,8 @@ jobs:
           echo "repo_name=$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)" >> "$GITHUB_OUTPUT"
           # 生成 YYMMDD 格式日期标签，例如 2026-10-07 -> 261007
           echo "date=$(TZ=Asia/Taipei date +'%y%m%d')" >> "$GITHUB_OUTPUT"
+          # 精确到秒的时间戳，用于击穿 Docker 构建缓存
+          echo "cachebust=$(TZ=Asia/Taipei date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -56,7 +58,11 @@ jobs:
         with:
           context: .
           push: true
-          # 一次构建，同时推送 Docker Hub 和 GHCR 的 latest + 日期标签
+          # CACHEBUST 每次不同 → app_update 层强制重跑，真正拉到最新版 L4D2
+          # L4D2_VERSION 写入镜像 LABEL，方便确认是哪天的构建
+          build-args: |
+            CACHEBUST=${{ steps.prep.outputs.cachebust }}
+            L4D2_VERSION=${{ steps.prep.outputs.date }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.prep.outputs.repo_name }}:latest
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.prep.outputs.repo_name }}:${{ steps.prep.outputs.date }}

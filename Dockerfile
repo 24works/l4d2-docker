@@ -1,6 +1,14 @@
 FROM debian:12-slim
+
+# 缓存击穿开关：值变化则之后的 RUN 层都重新执行
+# 由 workflow 传入，例如 20261007153045
+ARG CACHEBUST=0
+# 构建日期，例如 261007，写入 LABEL 便于识别版本
+ARG L4D2_VERSION=dev
+
 LABEL org.opencontainers.image.source=https://github.com/HoshinoRei/l4d2server-docker
-LABEL L4D2_VERSION=261006
+LABEL L4D2_VERSION=${L4D2_VERSION}
+
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV LANGUAGE=C.UTF-8
@@ -23,8 +31,11 @@ RUN wget -O steamcmd_linux.tar.gz https://steamcdn-a.akamaihd.net/client/install
     tar -xzf steamcmd_linux.tar.gz && \
     rm -f steamcmd_linux.tar.gz
 
-RUN ./steamcmd.sh +login anonymous +quit
+# steamcmd 自更新（也会因为 CACHEBUST 变化而重跑）
+RUN echo "cachebust=${CACHEBUST}" && \
+    ./steamcmd.sh +login anonymous +quit
 
+# Windows 平台依赖（L4D2 的 Windows 资源会顺带拉到 Linux 目录里）
 RUN ./steamcmd.sh \
         +force_install_dir /home/steam/l4d2server \
         +@sSteamCmdForcePlatformType windows \
@@ -32,6 +43,7 @@ RUN ./steamcmd.sh \
         +app_update 222860 validate \
         +quit
 
+# Linux 平台服务端本体
 RUN ./steamcmd.sh \
         +force_install_dir /home/steam/l4d2server \
         +@sSteamCmdForcePlatformType linux \
